@@ -80,14 +80,34 @@ class Tensor:
     def __rmul__(self, other):
         return self * other
 
+    def sum(self, axis=None, keepdims=False):
+        out = Tensor(self.data.sum(
+            axis=axis, keepdims=keepdims), (self,), 'sum')
+
+        def _backward():
+            grad = out.grad
+
+            if axis is not None and not keepdims:
+                grad = np.expand_dims(grad, axis=axis)
+                self.grad += np.broadcast_to(grad, self.data.shape)
+        out._backward = _backward
+        return out
+
     def exp(self):
-        x = self.data
-        out = Value(math.exp(x), (self, ), 'exp')
+        out = Tensor(np.exp(self.data), (self, ), 'exp')
 
         def _backward():
             self.grad += out.data * out.grad
         out._backward = _backward
 
+        return out
+
+    def log(self):
+        out = Tensor(np.log(self.data), (self, ), 'log')
+
+        def _backward():
+            self.grad += (1 / self.data()) * out.grad
+        out._backward = _backward()
         return out
 
     def __neg__(self):
@@ -141,7 +161,7 @@ class Tensor:
                 topo.append(v)
         build_topo(self)
 
-        self.grad = 1.0
+        self.grad = np.ones_like(self.data)
 
         for node in reversed(topo):
             node._backward()
