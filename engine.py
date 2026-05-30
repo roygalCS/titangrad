@@ -1,42 +1,80 @@
 import math
+import numpy as np
 
 
-class Value:
+class Tensor:
 
-    def __init__(self, data, _children=(), _op='', label=''):
-        self.data = data
-        self.grad = 0.0
+    def __init__(self, data, _children=(), _op=''):
+        self.data = np.asArray(data, dtype=np.float64)
+        self.grad = np.zero_like(self.data)
         self._backward = lambda: None
         self._prev = set(_children)
         self._op = _op
-        self.label = label
 
     def __repr__(self):
-        return f"Value(data={self.data})"
+        return f"Tensor(data={self.data}, label='{self.label}', shape={self.data.shape})"
 
     def __add__(self, other):
-        other = other if isinstance(other, Value) else Value(other)
-        out = Value(self.data + other.data, (self, other), '+')
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        out = Tensor(self.data + other.data, (self, other), '+')
 
         def _backward():
-            self.grad += 1.0 * out.grad
-            other.grad += 1.0 * out.grad
+            self.grad += _unbroadcast(out.grad, self.data.shape)
+            other.grad += _unbroadcast(out.grad, other.data.shape)
         out._backward = _backward
 
         return out
+
+    def _unbroadcast(grad, target_shape):
+
+        # scalar case:
+
+        if target.shape == ():
+            return grad.sum()
+
+        # If grad has extra leading dimensions, sum them away
+        while len(grad.shape) > len(target_shape):
+            grad = grad.sum(axis=0)
+
+        # If a target dimension was 1, it got broadcasted.
+        # Sum across that dimension to collapse it back.
+        for i, dim in enumerate(target_shape):
+            if dim == 1:
+                grad = grad.sum(axis=i, keepdims=True)
+
+        return grad.reshape(target_shape)
+
+        return None
 
     def __radd__(self, other):
         return self + other
 
     def __mul__(self, other):
-        other = other if isinstance(other, Value) else Value(other)
-        out = Value(self.data * other.data, (self, other), '*')
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        out = Tensor(self.data * other.data, (self, other), '*')
 
         def _backward():
-            self.grad += other.data * out.grad
-            other.grad += self.data * out.grad
+            self.grad += _unbroadcast(other.data * out.grad, self.data.shape)
+            other.grad += _unbroadcast(self.data * out.grad, other.data.shape)
         out._backward = _backward
 
+        return out
+
+    def __matmul__(self, other):
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        out = Tensor(self.data @ other.data, (self, other), '@')
+
+        def _backward():
+            if out.data.ndim == 0:
+                # Case 1: 1D vector dot product → scalar result
+                # dL/dA = dL/dC * B,  dL/dB = dL/dC * A
+                self.grad += out.grad * other.data
+                other.grad += out.grad * self.data
+            else:
+                # Case 2: normal matrix multiply
+                self.grad += out.grad @ other.data.T
+                other.grad += self.data.T @ out.grad
+        out._backward = _backward
         return out
 
     def __rmul__(self, other):
@@ -73,14 +111,22 @@ class Value:
         return out
 
     def tanh(self):
-        x = self.data
-        t = ((math.exp(2*x)-1) / (math.exp(2*x)+1))
-        out = Value(t, (self, ), label='tanh')
+
+        t = np.tanh(self.data)
+        out = Tensor(t, (self, ), 'tanh')
 
         def _backward():
             self.grad += (1 - t**2) * out.grad
         out._backward = _backward
 
+        return out
+
+    def relu(self):
+        out = Tensor(np.maximum(0, self.data), (self,), 'ReLU')
+
+        def _backward():
+            self.grad += (out.data > 0) * out.grad
+        out._backward = _backward
         return out
 
     def backward(self):
