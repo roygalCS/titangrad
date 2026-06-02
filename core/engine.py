@@ -4,12 +4,26 @@ import numpy as np
 
 class Tensor:
 
-    def __init__(self, data, _children=(), _op=''):
+    def __init__(self, data, device='cpu', requires_grad=True, _children=(), _op=''):
+        self.device = device
+        self.requires_grad = requires_grad
+
+        xp = get_backend(device)
+
         self.data = np.asArray(data, dtype=np.float64)
         self.grad = np.zero_like(self.data)
         self._backward = lambda: None
         self._prev = set(_children)
         self._op = _op
+
+    def to(self, device):
+        """ pytorch copy of .to('cuda') """
+
+        if device == self.device:
+            return self
+        xp = get_backend(device)
+        new_data = xp.asarray(self.data)
+        return Tensor(new_data, device=device, requires_grad=self.requires_grad)
 
     def __repr__(self):
         return f"Tensor(data={self.data}, label='{self.label}', shape={self.data.shape})"
@@ -23,6 +37,17 @@ class Tensor:
             other.grad += _unbroadcast(out.grad, other.data.shape)
         out._backward = _backward
 
+        return out
+
+    def __getitem__(self, idx):
+        out = Tensor(self.data[idx], (self,), 'slice')
+
+        def _backward():
+            grad_update = np.zeros_like(self.data)
+            grad_update[idx] = out.grad
+            self.grad += grad_update
+
+        out._backward = _backward
         return out
 
     def _unbroadcast(grad, target_shape):
