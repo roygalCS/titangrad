@@ -29,6 +29,12 @@ class Adam:
         self.m = {}  # first moment aka momentum
         self.v = {}  # second moment aka velo
 
+    def zero_grad(self):
+        for p in self.params:
+            if p.grad is not None:
+                xp = get_backend(p.device)
+                p.grad = xp.zeros_like(p.data)
+
     def step(self):
         self.t += 1
         for i, p in enumerate(self.params):
