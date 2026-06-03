@@ -1,5 +1,6 @@
 from numba import jit
 import numpy as np
+from core.backend import get_backend
 
 
 @jit(nopython=True)
@@ -28,16 +29,33 @@ def conv2d_forward_kernel(input_data, kernel, stride=1, padding=0):
     return output
 
 
+def _unbroadcast(grad, target_shape):
+
+    # scalar case:
+
+    if target_shape == ():
+        return grad.sum()
+
+    while len(grad.shape) > len(target_shape):
+        grad = grad.sum(axis=0)
+
+    for i, dim in enumerate(target_shape):
+        if dim == 1:
+            grad = grad.sum(axis=i, keepdims=True)
+
+    return grad.reshape(target_shape)
+
+
 class Tensor:
 
-    def __init__(self, data, device='cpu', requires_grad=True, _children=(), _op=''):
+    def __init__(self, data, _children=(), _op='', device='cpu', requires_grad=True):
         self.device = device
         self.requires_grad = requires_grad
 
         xp = get_backend(device)
 
-        self.data = np.asArray(data, dtype=np.float64)
-        self.grad = np.zero_like(self.data)
+        self.data = xp.asarray(data, dtype=np.float64)
+        self.grad = xp.zeros_like(self.data)
         self._backward = lambda: None
         self._prev = set(_children)
         self._op = _op
@@ -52,7 +70,7 @@ class Tensor:
         return Tensor(new_data, device=device, requires_grad=self.requires_grad)
 
     def __repr__(self):
-        return f"Tensor(data={self.data}, label='{self.label}', shape={self.data.shape})"
+        return f"Tensor(data={self.data}, shape={self.data.shape})"
 
     def __add__(self, other):
         other = other if isinstance(other, Tensor) else Tensor(other)
@@ -75,27 +93,6 @@ class Tensor:
 
         out._backward = _backward
         return out
-
-    def _unbroadcast(grad, target_shape):
-
-        # scalar case:
-
-        if target.shape == ():
-            return grad.sum()
-
-        # If grad has extra leading dimensions, sum them away
-        while len(grad.shape) > len(target_shape):
-            grad = grad.sum(axis=0)
-
-        # If a target dimension was 1, it got broadcasted.
-        # Sum across that dimension to collapse it back.
-        for i, dim in enumerate(target_shape):
-            if dim == 1:
-                grad = grad.sum(axis=i, keepdims=True)
-
-        return grad.reshape(target_shape)
-
-        return None
 
     def __radd__(self, other):
         return self + other
@@ -137,10 +134,9 @@ class Tensor:
 
         def _backward():
             grad = out.grad
-
             if axis is not None and not keepdims:
                 grad = np.expand_dims(grad, axis=axis)
-                self.grad += np.broadcast_to(grad, self.data.shape)
+            self.grad += np.broadcast_to(grad, self.data.shape)
         out._backward = _backward
         return out
 
@@ -157,8 +153,8 @@ class Tensor:
         out = Tensor(np.log(self.data), (self, ), 'log')
 
         def _backward():
-            self.grad += (1 / self.data()) * out.grad
-        out._backward = _backward()
+            self.grad += (1 / self.data) * out.grad
+        out._backward = _backward
         return out
 
     def __neg__(self):
@@ -173,7 +169,7 @@ class Tensor:
     def __pow__(self, other):
         assert isinstance(other, (int, float)
                           ), "for now only supporting int and float exponent"
-        out = Value(self.data**other, (self,), f'**{other}')
+        out = Tensor(self.data**other, (self,), f'**{other}')
 
         def _backward():
             self.grad += other * (self.data ** (other - 1)) * out.grad

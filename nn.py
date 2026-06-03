@@ -1,5 +1,5 @@
 import numpy as np
-from engine import Tensor
+from core.engine import Tensor
 
 
 class Module:
@@ -16,13 +16,17 @@ class Module:
 
 class Neuron(Module):
     def __init__(self, nin, activation='tanh'):
-        self.w = Tensor(np.random.randn(nin, 1) * 0.1)
+        self.w = Tensor(np.random.randn(nin) * 0.1)
         self.b = Tensor(0.0)
         self.activation = activation
 
     def __call__(self, x):
         if isinstance(x, list):
-            x = Tensor(np.array(x, dtype=np.float64))
+            if len(x) > 0 and isinstance(x[0], Tensor):
+                x = Tensor(np.array([float(t.data)
+                           for t in x], dtype=np.float64))
+            else:
+                x = Tensor(np.array(x, dtype=np.float64))
         elif not isinstance(x, Tensor):
             x = Tensor(x)
         act = x @ self.w + self.b

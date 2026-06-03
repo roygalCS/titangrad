@@ -3,14 +3,14 @@ from sklearn.datasets import fetch_openml
 from nn import MLP
 
 
-def softmax_cross_entropy(self, logits, target_index):
+def softmax_cross_entropy(logits, target_index):
     """
     logits: a Tensor of shape (num_classes), outputs from network
     target_index: an integer, which class is correct
     """
 
-    max_val = max(float(l) for l in logits)
-    shifted = [l-max_val for l in logits]
+    max_val = max(float(l.data) for l in logits)
+    shifted = [l - max_val for l in logits]
     exp_vals = [l.exp() for l in shifted]
 
     sum_exp = exp_vals[0]
@@ -55,6 +55,8 @@ for epoch in range(10):
 
         for p in model.parameters():
             p.data -= learning_rate * p.grad
+
+        total_loss += float(loss.data)
 
         pred = max(range(10), key=lambda i: float(logits[i].data))
         if pred == label:

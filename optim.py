@@ -1,3 +1,6 @@
+from core.backend import get_backend
+
+
 class SGD:
     def __init__(self, parameters, lr=0.01):
         self.params = parameters
@@ -23,8 +26,8 @@ class Adam:
         self.beta2 = beta2
         self.eps = eps
         self.t = 0  # time step
-        self.m = {}  # first moment (momentum)
-        self.v = {}  # second moment (velocity)
+        self.m = {}  # first moment aka momentum
+        self.v = {}  # second moment aka velo
 
     def step(self):
         self.t += 1
