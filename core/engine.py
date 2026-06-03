@@ -1,5 +1,31 @@
-import math
+from numba import jit
 import numpy as np
+
+
+@jit(nopython=True)
+def conv2d_forward_kernel(input_data, kernel, stride=1, padding=0):
+    batch, in_c, h, w = input_data.shape
+    out_c, _, kh, kw = kernel.shape
+
+    out_h = (h + 2*padding - kh) // stride + 1
+    out_w = (w + 2*padding - kw) // stride + 1
+
+    output = np.zeros((batch, out_c, out_h, out_w))
+
+    for b in range(batch):
+        for oc in range(out_c):
+            for oh in range(out_h):
+                for ow in range(out_w):
+                    for ic in range(in_c):
+                        for khi in range(kh):
+                            for kwi in range(kw):
+                                ih = oh * stride + khi - padding
+                                iw = ow * stride + kwi - padding
+                                if 0 <= ih < h and 0 <= iw < w:
+                                    output[b, oc, oh, ow] += \
+                                        input_data[b, ic, ih, iw] * \
+                                        kernel[oc, ic, khi, kwi]
+    return output
 
 
 class Tensor:
