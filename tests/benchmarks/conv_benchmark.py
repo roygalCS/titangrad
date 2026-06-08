@@ -1,10 +1,11 @@
-from core.engine import conv2d_forward_kernel
-import numpy as np
-import time
 import sys
 import os
+import numpy as np
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from core.engine import conv2d_forward_kernel
 
 
 def conv2d_pure_python(input_data, kernel, stride=1, padding=0):
