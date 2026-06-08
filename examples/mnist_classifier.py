@@ -1,7 +1,11 @@
+import sys
+import os
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 import numpy as np
 import urllib.request
 import gzip
-import os
 from core.engine import Tensor
 from nn import MLP
 from optim import Adam
@@ -44,14 +48,6 @@ def load_mnist():
     return X_train, y_train, X_test, y_test
 
 
-print("Loading MNIST...")
-X_train, y_train, X_test, y_test = load_mnist()
-
-# Build model
-model = MLP(784, [128, 64, 10], activation='relu')
-optimizer = Adam(model.parameters(), lr=0.001)
-
-
 def cross_entropy_loss(logits_list, target):
     """logits_list: list of 10 Tensors, target: integer"""
     max_val = float(max(float(l.data) for l in logits_list))
@@ -68,26 +64,34 @@ def cross_entropy_loss(logits_list, target):
     return loss
 
 
-print("Training...")
-for epoch in range(5):
-    total_loss = 0.0
-    correct = 0
+if __name__ == '__main__':
+    print("Loading MNIST...")
+    X_train, y_train, X_test, y_test = load_mnist()
 
-    indices = np.random.permutation(len(X_train))
+    # Build model
+    model = MLP(784, [128, 64, 10], activation='relu')
+    optimizer = Adam(model.parameters(), lr=0.001)
 
-    for start in range(0, min(len(X_train), 10000), 1):  # 10k examples per epoch for speed
-        i = indices[start]
+    print("Training...")
+    for epoch in range(5):
+        total_loss = 0.0
+        correct = 0
 
-        optimizer.zero_grad()
-        logits = model(X_train[i])
-        loss = cross_entropy_loss(logits, y_train[i])
-        loss.backward()
-        optimizer.step()
+        indices = np.random.permutation(len(X_train))
 
-        total_loss += float(loss.data)
-        pred = max(range(10), key=lambda j: float(logits[j].data))
-        if pred == y_train[i]:
-            correct += 1
+        for start in range(0, min(len(X_train), 10000), 1):  # 10k examples per epoch for speed
+            i = indices[start]
 
-    print(
-        f"Epoch {epoch+1}: loss={total_loss/10000:.4f}, train_acc={correct/10000*100:.1f}%")
+            optimizer.zero_grad()
+            logits = model(X_train[i])
+            loss = cross_entropy_loss(logits, y_train[i])
+            loss.backward()
+            optimizer.step()
+
+            total_loss += float(loss.data)
+            pred = max(range(10), key=lambda j: float(logits[j].data))
+            if pred == y_train[i]:
+                correct += 1
+
+        print(
+            f"Epoch {epoch+1}: loss={total_loss/10000:.4f}, train_acc={correct/10000*100:.1f}%")

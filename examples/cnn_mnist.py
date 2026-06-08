@@ -58,50 +58,49 @@ def cross_entropy_loss(logits_list, target):
     return -log_probs[target]
 
 
-print("Loading MNIST...")
-X_train, y_train, X_test, y_test = load_mnist()
+if __name__ == '__main__':
+    print("Loading MNIST...")
+    X_train, y_train, X_test, y_test = load_mnist()
 
-# Reshape flat 784 vectors into (1, 28, 28) images for the conv layer
-X_train_img = X_train.reshape(-1, 1, 28, 28).astype(np.float64)
-X_test_img = X_test.reshape(-1, 1, 28, 28).astype(np.float64)
+    # Reshape flat 784 vectors into (1, 28, 28) images for the conv layer
+    X_train_img = X_train.reshape(-1, 1, 28, 28).astype(np.float64)
+    X_test_img = X_test.reshape(-1, 1, 28, 28).astype(np.float64)
 
-# Architecture:
-# Conv2d(1->8, 3x3) -> ReLU -> flatten (8*26*26=5408) -> Linear(5408->64) -> Linear(64->10)
-conv = Conv2d(1, 8, kernel_size=3, stride=1, padding=0)
-mlp = MLP(8 * 26 * 26, [64, 10], activation='relu')
-flat = Flatten()
+    # Architecture:
+    # Conv2d(1->8, 3x3) -> ReLU -> flatten (8*26*26=5408) -> Linear(5408->64) -> Linear(64->10)
+    conv = Conv2d(1, 8, kernel_size=3, stride=1, padding=0)
+    mlp = MLP(8 * 26 * 26, [64, 10], activation='relu')
+    flat = Flatten()
 
-optimizer = Adam(conv.parameters() + mlp.parameters(), lr=0.001)
+    optimizer = Adam(conv.parameters() + mlp.parameters(), lr=0.001)
 
+    def forward(image):
+        x = conv(image)
+        relu_out = x.relu()
+        flat_out = flat(relu_out)
+        logits = mlp(flat_out)
+        return logits
 
-def forward(image):
-    x = conv(image)
-    relu_out = x.relu()
-    flat_out = flat(relu_out)
-    logits = mlp(flat_out)
-    return logits
+    print("Training CNN...")
+    for epoch in range(5):
+        total_loss = 0.0
+        correct = 0
 
+        indices = np.random.permutation(len(X_train_img))
 
-print("Training CNN...")
-for epoch in range(5):
-    total_loss = 0.0
-    correct = 0
+        for start in range(0, min(len(X_train_img), 2000), 1):
+            i = indices[start]
 
-    indices = np.random.permutation(len(X_train_img))
+            optimizer.zero_grad()
+            logits = forward(X_train_img[i:i+1])
+            loss = cross_entropy_loss(logits, y_train[i])
+            loss.backward()
+            optimizer.step()
 
-    for start in range(0, min(len(X_train_img), 2000), 1):
-        i = indices[start]
+            total_loss += float(loss.data)
+            pred = max(range(10), key=lambda j: float(logits[j].data))
+            if pred == y_train[i]:
+                correct += 1
 
-        optimizer.zero_grad()
-        logits = forward(X_train_img[i:i+1])
-        loss = cross_entropy_loss(logits, y_train[i])
-        loss.backward()
-        optimizer.step()
-
-        total_loss += float(loss.data)
-        pred = max(range(10), key=lambda j: float(logits[j].data))
-        if pred == y_train[i]:
-            correct += 1
-
-    print(
-        f"Epoch {epoch+1}: loss={total_loss/2000:.4f}, train_acc={correct/2000*100:.1f}%")
+        print(
+            f"Epoch {epoch+1}: loss={total_loss/2000:.4f}, train_acc={correct/2000*100:.1f}%")

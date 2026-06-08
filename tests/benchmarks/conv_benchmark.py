@@ -28,42 +28,43 @@ def conv2d_pure_python(input_data, kernel, stride=1, padding=0):
     return output
 
 
-inp = np.random.randn(1, 1, 28, 28)
-ker = np.random.randn(8, 1, 3, 3)
+if __name__ == '__main__':
+    inp = np.random.randn(1, 1, 28, 28)
+    ker = np.random.randn(8, 1, 3, 3)
 
-print("Warming up Numba (first call compiles the kernel)...")
-conv2d_forward_kernel(inp, ker)
-print("Done.\n")
-
-N = 20
-t0 = time.perf_counter()
-for _ in range(N):
+    print("Warming up Numba (first call compiles the kernel)...")
     conv2d_forward_kernel(inp, ker)
-numba_ms = (time.perf_counter() - t0) / N * 1000
+    print("Done.\n")
 
-N_py = 3
-t0 = time.perf_counter()
-for _ in range(N_py):
-    conv2d_pure_python(inp, ker)
-python_ms = (time.perf_counter() - t0) / N_py * 1000
-
-try:
-    import torch
-    import torch.nn.functional as F
-    inp_pt = torch.tensor(inp, dtype=torch.float32)
-    ker_pt = torch.tensor(ker, dtype=torch.float32)
-    for _ in range(5):
-        F.conv2d(inp_pt, ker_pt)
+    N = 20
     t0 = time.perf_counter()
-    for _ in range(100):
-        F.conv2d(inp_pt, ker_pt)
-    pytorch_ms = (time.perf_counter() - t0) / 100 * 1000
-    pytorch_line = f"PyTorch (CPU):    {pytorch_ms:.3f}ms"
-except ImportError:
-    pytorch_line = "PyTorch: not installed"
+    for _ in range(N):
+        conv2d_forward_kernel(inp, ker)
+    numba_ms = (time.perf_counter() - t0) / N * 1000
 
-print(f"Input:  {inp.shape}  Kernel: {ker.shape}\n")
-print(f"Pure Python:      {python_ms:.1f}ms")
-print(f"TitanGrad (Numba):{numba_ms:.3f}ms")
-print(pytorch_line)
-print(f"\nSpeedup vs Python: {python_ms/numba_ms:.0f}x")
+    N_py = 3
+    t0 = time.perf_counter()
+    for _ in range(N_py):
+        conv2d_pure_python(inp, ker)
+    python_ms = (time.perf_counter() - t0) / N_py * 1000
+
+    try:
+        import torch
+        import torch.nn.functional as F
+        inp_pt = torch.tensor(inp, dtype=torch.float32)
+        ker_pt = torch.tensor(ker, dtype=torch.float32)
+        for _ in range(5):
+            F.conv2d(inp_pt, ker_pt)
+        t0 = time.perf_counter()
+        for _ in range(100):
+            F.conv2d(inp_pt, ker_pt)
+        pytorch_ms = (time.perf_counter() - t0) / 100 * 1000
+        pytorch_line = f"PyTorch (CPU):    {pytorch_ms:.3f}ms"
+    except ImportError:
+        pytorch_line = "PyTorch: not installed"
+
+    print(f"Input:  {inp.shape}  Kernel: {ker.shape}\n")
+    print(f"Pure Python:      {python_ms:.1f}ms")
+    print(f"TitanGrad (Numba):{numba_ms:.3f}ms")
+    print(pytorch_line)
+    print(f"\nSpeedup vs Python: {python_ms/numba_ms:.0f}x")
