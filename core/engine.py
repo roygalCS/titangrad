@@ -29,6 +29,34 @@ def conv2d_forward_kernel(input_data, kernel, stride=1, padding=0):
     return output
 
 
+@jit(nopython=True)
+def conv2d_backward_kernel(d_out, input_data, kernel, stride=1, padding=0):
+    batch, in_c, h, w = input_data.shape
+    out_c, _, kh, kw = kernel.shape
+    _, _, out_h, out_w = d_out.shape
+
+    d_input = np.zeros_like(input_data)
+    d_kernel = np.zeros_like(kernel)
+
+    for b in range(batch):
+        for oc in range(out_c):
+            for oh in range(out_h):
+                for ow in range(out_w):
+                    grad = d_out[b, oc, oh, ow]
+                    for ic in range(in_c):
+                        for khi in range(kh):
+                            for kwi in range(kw):
+                                ih = oh * stride + khi - padding
+                                iw = ow * stride + kwi - padding
+                                if 0 <= ih < h and 0 <= iw < w:
+                                    d_input[b, ic, ih, iw] += grad * \
+                                        kernel[oc, ic, khi, kwi]
+                                    d_kernel[oc, ic, khi, kwi] += grad * \
+                                        input_data[b, ic, ih, iw]
+
+    return d_input, d_kernel
+
+
 def _unbroadcast(grad, target_shape):
 
     # scalar case:
