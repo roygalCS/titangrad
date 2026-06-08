@@ -1,10 +1,11 @@
-from core.engine import Tensor
-import numpy as np
-import torch
 import sys
 import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from core.engine import Tensor
+import numpy as np
+import torch
 
 
 np.random.seed(42)
@@ -178,22 +179,6 @@ def test_full_mlp_graph():
     print("full MLP graph (matmul + add + relu): OK")
 
 
-if __name__ == '__main__':
-    print("Running parity tests against PyTorch...\n")
-    test_add()
-    test_add_broadcast()
-    test_mul()
-    test_matmul()
-    test_relu()
-    test_log()
-    test_exp()
-    test_pow()
-    test_sum_all()
-    test_sum_axis()
-    test_full_mlp_graph()
-    print("\nAll parity tests passed. TitanGrad matches PyTorch.")
-
-
 def test_conv2d():
     import torch.nn.functional as F
     from core.engine import conv2d_forward_kernel, conv2d_backward_kernel
@@ -223,3 +208,20 @@ def test_conv2d():
     assert np.allclose(conv.bias.grad, b_pt.grad.numpy(),
                        atol=1e-6), "bias grad mismatch"
     print("conv2d (forward + backward): OK")
+
+
+if __name__ == '__main__':
+    print("Running parity tests against PyTorch...\n")
+    test_add()
+    test_add_broadcast()
+    test_mul()
+    test_matmul()
+    test_relu()
+    test_log()
+    test_exp()
+    test_pow()
+    test_sum_all()
+    test_sum_axis()
+    test_full_mlp_graph()
+    test_conv2d()
+    print("\nAll parity tests passed. TitanGrad matches PyTorch.")
