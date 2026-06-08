@@ -1,6 +1,6 @@
 from numba import jit
 import numpy as np
-from core.backend import get_backend
+from .backend import get_backend
 
 
 @jit(nopython=True)

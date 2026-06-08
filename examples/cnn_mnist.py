@@ -1,13 +1,12 @@
+import sys
+import os
+import gzip
+import urllib.request
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from optim import Adam
 from nn import Conv2d, MLP, Flatten, Sequential
 from core.engine import Tensor
 import numpy as np
-import urllib.request
-import gzip
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 
 def load_mnist():
